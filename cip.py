@@ -119,7 +119,7 @@ class CIP_RespAttributesList(scapy_all.Packet):
 class CIP_ReqGetAttributeList(scapy_all.Packet):
     """The list of requested attributes in a CIP Get_Attribute_List request"""
     fields_desc = [
-        utils.LEShortLenField("count", None, count_of="attrs"),
+        utils.LEShortLenField("count", 1, count_of="attrs"),
         scapy_all.FieldListField("attrs", [], scapy_all.LEShortField("", 0),
                                  count_from=lambda pkt: pkt.count),
     ]
@@ -146,7 +146,7 @@ class CIP_PathField(scapy_all.StrLenField):
         4: "attribute",  # 0x30 = 8-bit attribute ID, 0x31 = 16-bit attribute ID
     }
     KNOWN_CLASSES = {
-        0x01: "Idendity",
+        0x01: "Identity",
         0x02: "Message Router",
         0x06: "Connection Manager",
         0x6b: "Symbol",
@@ -156,6 +156,7 @@ class CIP_PathField(scapy_all.StrLenField):
     @classmethod
     def to_tuplelist(cls, val):
         """Return a list of tuples describing the content of the path encoded in val"""
+        #print val
         if ord(val[0]) == 0x91:
             # "ANSI Extended Symbolic", the path is a string
             # Don't check the second byte, which is the length (in bytes) of the strings.
@@ -537,15 +538,15 @@ class CIP_ReqConnectionManager(scapy_all.Packet):
         scapy_all.BitField("priority", 0, 1),
         scapy_all.BitField("ticktime", 5, 4),
         scapy_all.ByteField("timeout_ticks", 157),
-        utils.LEShortLenField("message_size", None, length_of="message"),
+        utils.LEShortLenField("message_size", 8, length_of="message"),
         scapy_all.PacketLenField("message", None, CIP,
                                  length_from=lambda pkt: pkt.message_size),
-        scapy_all.StrLenField("message_padding", None,
+        scapy_all.StrLenField("message_padding", '',
                               length_from=lambda pkt: pkt.message_size % 2),
         scapy_all.ByteField("route_path_size", 1),  # TODO: size in words
         scapy_all.ByteField("reserved2", 0),
         scapy_all.ByteField("route_path_size_port", 1),
-        scapy_all.ByteField("route_path_size_addr", 0),
+        scapy_all.ByteField("route_path_size_addr", 1),
     ]
 
     def post_build(self, p, pay):

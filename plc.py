@@ -73,14 +73,18 @@ class PLCClient(object):
             ENIP_SendUnitData_Item(type_id=0),
             ENIP_SendUnitData_Item() / cippkt
         ])
+        enippkt.show()
         if self.sock is not None:
             self.sock.send(str(enippkt))
 
     def send_rr_cm_cip(self, cippkt):
         """Encapsulate the CIP packet into a ConnectionManager packet"""
-        cipcm_msg = [cippkt]
+        cippkt.show()
+        print "\n"
+        cipcm_msg = cippkt #[cippkt]
         cippkt = CIP(path=CIP_Path.make(class_id=6, instance_id=1))
         cippkt /= CIP_ReqConnectionManager(message=cipcm_msg)
+        cippkt.show()
         self.send_rr_cip(cippkt)
 
     def send_rr_mr_cip(self, cippkt):
@@ -98,6 +102,7 @@ class PLCClient(object):
             ENIP_SendUnitData_Item() / ENIP_ConnectionPacket(sequence=self.sequence) / cippkt
         ])
         self.sequence += 1
+        enippkt.show()
         if self.sock is not None:
             self.sock.send(str(enippkt))
 
@@ -115,6 +120,7 @@ class PLCClient(object):
         cippkt /= CIP_ReqForwardOpen(path_wordsize=3, path=b"\x01\x00\x20\x02\x24\x01")
         self.send_rr_cip(cippkt)
         resppkt = self.recv_enippkt()
+        resppkt.show()
         if self.sock is None:
             return
         cippkt = resppkt[CIP]
@@ -175,6 +181,22 @@ class PLCClient(object):
             return False
         return True
 
+
+    def set_attribute_single(self, class_id, instance, attr, value):
+        """Set the value of attribute class/instance/attr"""
+        path = CIP_Path.make(class_id=class_id, instance_id=instance)
+        # User CIP service 16: Set_Attribute_Single
+        cippkt = CIP(service=16, path=path) / scapy_all.Raw(load=struct.pack('<HH', 1, attr) + value)
+        self.send_rr_cm_cip(cippkt)
+        if self.sock is None:
+            return
+        resppkt = self.recv_enippkt()
+        cippkt = resppkt[CIP]
+        if cippkt.status[0].status != 0:
+            logger.error("CIP set attribute error: %r", cippkt.status[0])
+            return False
+        return True
+
     def get_list_of_instances(self, class_id):
         """Use CIP service 0x4b to get a list of instances of the specified class"""
         start_instance = 0
@@ -185,6 +207,7 @@ class PLCClient(object):
             if self.sock is None:
                 return
             resppkt = self.recv_enippkt()
+            resppkt[CIP].show()
 
             # Decode a list of 32-bit integers
             data = str(resppkt[CIP].payload)
@@ -210,11 +233,12 @@ class PLCClient(object):
         while remaining_size > 0:
             cippkt = CIP(service=0x4c, path=CIP_Path.make(class_id=class_id, instance_id=instance_id))
             cippkt /= CIP_ReqReadOtherTag(start=offset, length=remaining_size)
+            cippkt.show()
             self.send_rr_cm_cip(cippkt)
             if self.sock is None:
                 return
             resppkt = self.recv_enippkt()
-
+            resppkt[CIP].show()
             cipstatus = resppkt[CIP].status[0].status
             received_data = str(resppkt[CIP].payload)
             if cipstatus == 0:
